@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import cv2
@@ -9,24 +10,43 @@ from mobile_net import MobileNet
 from async_buffer import AsyncBuffer
 from async_buffer import process_frame
 
-fps = 24
-video_path = "./abrams/video.mp4"
-weights_path = "./abrams/model.model"
-device = "cpu"
-max_size = 200
-threshold = 0.9
-matching_scale = 0.2
-buffer_step = 2
-
-draw_output = False
-debug = True
-save_to_file = False
-save_path = "./processed/"
-
 if __name__ == '__main__':
-    video = VideoProvider(video_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("net", type=str, help="Neural network type", choices=["ssd", "fastrcnn"])
+    parser.add_argument("weights", type=str, help="Relative weights path")
+    parser.add_argument("-p", type=str, help="Relative video path, only used when camera isn't a video provider")
+    parser.add_argument("-s", type=int, help="Max window size for template matching, default = 200", default=200)
+    parser.add_argument("-t", type=float, help="Neural network threshold, default = 0.4", default=0.4)
+    parser.add_argument("-m", type=float, help="Matching scale, default = 0.2", default=0.2)
+    parser.add_argument("-b", type=int, help="Buffer step size, default = 2", default=2)
+    parser.add_argument("--cuda", help="Compute on CUDA", action=argparse.BooleanOptionalAction, dest="cuda", default=False)
+    parser.add_argument("--debug", help="Enable debug output", action=argparse.BooleanOptionalAction, dest="d", default=False)
+    parser.add_argument("--draw-debug", help="Draw debug output", action=argparse.BooleanOptionalAction, dest="dd", default=False)
+    parser.add_argument("--save", help="Save processed images to file", action=argparse.BooleanOptionalAction, dest="save", default=False)
+    parser.add_argument("--save-path", type=str, help="Relative save path for processed images", dest="save_path", default="./processed/")
 
-    model = MobileNet(weights_path, device, threshold)
+    args = parser.parse_args()
+
+    weights_path = args.weights
+    video_path = args.p
+    net = args.net
+    if args.cuda:
+        device = "cuda"
+    else:
+        device = "cpu"
+    debug = args.d
+    draw_output = args.dd
+    save_to_file = args.save
+    save_path = args.save_path
+    max_size = args.s
+    threshold = args.t
+    matching_scale = args.m
+    buffer_step = args.b
+
+    video = VideoProvider(video_path)
+    fps = video.get_fps()
+
+    model = MobileNet(weights_path, device, threshold, net)
 
     buffer = AsyncBuffer(max_size, matching_scale, buffer_step)
     coords = []
@@ -91,6 +111,8 @@ if __name__ == '__main__':
         wait_time = 1 / fps - (time.time() - start)
         if wait_time > 0:
             time.sleep(wait_time)
+
+    video.release()
 
     if debug:
         fps_history.pop(0)

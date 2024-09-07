@@ -17,3 +17,9 @@ class VideoProvider:
             return None
         else:
             return frame
+
+    def release(self):
+        self.cap.release()
+
+    def get_fps(self):
+        return self.cap.get(cv2.CAP_PROP_FPS)

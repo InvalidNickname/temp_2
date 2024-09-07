@@ -1,5 +1,4 @@
 import threading
-import time
 
 import numpy as np
 import torch
@@ -8,11 +7,21 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 
 
 class MobileNet:
-    def __init__(self, weights_path, device, threshold):
-        self.model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_320_fpn()
-        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
-        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, 2)
-        self.model.load_state_dict(torch.load(weights_path))
+    def __init__(self, weights_path, device, threshold, head='fastrcnn'):
+        if head == 'fastrcnn':
+            self.model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_320_fpn(
+                weights=None,
+                weights_backbone=None
+            )
+            in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+            self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, 2)
+        else:
+            self.model = torchvision.models.detection.ssdlite320_mobilenet_v3_large(
+                weights=None,
+                weights_backbone='DEFAULT',
+                num_classes=2
+            )
+        self.model.load_state_dict(torch.load(weights_path, map_location=device))
         self.model.eval()
         self.model.to(device)
 
